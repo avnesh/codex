@@ -10,10 +10,7 @@ function loader(element) {
     element.textContent = ''
 
     loadInterval = setInterval(() => {
-        // Update the text content of the loading indicator
         element.textContent += '.';
-
-        // If the loading indicator has reached three dots, reset it
         if (element.textContent === '....') {
             element.textContent = '';
         }
@@ -22,7 +19,6 @@ function loader(element) {
 
 function typeText(element, text) {
     let index = 0
-
     let interval = setInterval(() => {
         if (index < text.length) {
             element.innerHTML += text.charAt(index)
@@ -33,9 +29,6 @@ function typeText(element, text) {
     }, 20)
 }
 
-// generate unique ID for each message div of bot
-// necessary for typing text effect for that specific reply
-// without unique ID, typing text will work on every element
 function generateUniqueId() {
     const timestamp = Date.now();
     const randomNumber = Math.random();
@@ -62,53 +55,57 @@ function chatStripe(isAi, value, uniqueId) {
     )
 }
 
+// ✅ Auto-detect backend URL
+const API_URL =
+  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:5000/"
+    : "https://codex-1kmv.onrender.com/";
+
 const handleSubmit = async (e) => {
     e.preventDefault()
 
     const data = new FormData(form)
 
-    // user's chatstripe
+    // user message
     chatContainer.innerHTML += chatStripe(false, data.get('prompt'))
 
-    // to clear the textarea input 
     form.reset()
 
-    // bot's chatstripe
+    // bot placeholder
     const uniqueId = generateUniqueId()
     chatContainer.innerHTML += chatStripe(true, " ", uniqueId)
-
-    // to focus scroll to the bottom 
     chatContainer.scrollTop = chatContainer.scrollHeight;
 
-    // specific message div 
     const messageDiv = document.getElementById(uniqueId)
 
-    // messageDiv.innerHTML = "..."
     loader(messageDiv)
 
-    const response = await fetch('https://codex-1kmv.onrender.com/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            prompt: data.get('prompt')
+    try {
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: data.get('prompt')
+            })
         })
-    })
 
-    clearInterval(loadInterval)
-    messageDiv.innerHTML = " "
+        clearInterval(loadInterval)
+        messageDiv.innerHTML = " "
 
-    if (response.ok) {
-        const data = await response.json();
-        const parsedData = data.bot.trim() // trims any trailing spaces/'\n' 
-
-        typeText(messageDiv, parsedData)
-    } else {
-        const err = await response.text()
-
-        messageDiv.innerHTML = "Something went wrong"
-        alert(err)
+        if (response.ok) {
+            const data = await response.json();
+            const parsedData = data.bot.trim()
+            typeText(messageDiv, parsedData)
+        } else {
+            const err = await response.text()
+            messageDiv.innerHTML = "⚠️ Error: Unable to process request"
+            alert(`Backend error: ${err}`)
+        }
+    } catch (error) {
+        clearInterval(loadInterval)
+        messageDiv.innerHTML = "❌ Server not reachable. Please try again later."
+        alert("⚠️ Cannot connect to the server. Check if backend is running or deployed.")
+        console.error(error)
     }
 }
 
